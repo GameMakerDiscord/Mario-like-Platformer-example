@@ -29,3 +29,5 @@ friction_strength = 0.5;
 
 mask_index = spr_player_small_mask;
 
+invincibility = 0;
+dead = false;

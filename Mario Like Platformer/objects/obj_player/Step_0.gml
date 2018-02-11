@@ -1,6 +1,20 @@
 /// @description Insert description here
 // You can write your code in this editor
+#region Handling death
 
+if (dead == true) {
+	image_speed = 0;
+	sprite_index = spr_player_small_jump;
+	yspeed += gravity_strength;
+	y += yspeed;
+	if (y > room_height && yspeed > 0) {
+		//end game.. or restart.. eh.. end game code would eb called here. 
+		room_restart();
+	}
+	exit;
+}
+
+#endregion
 
 #region Input
 
@@ -126,10 +140,21 @@ if (instance_exists(_inst)) {
 var _inst = instance_place(x,y+1,par_enemy);
 if (_inst != noone) {
 	with (_inst) {
-		hp -= 1;	
+		if (bbox_top+5 > other.bbox_bottom) {
+			hp -= 1;	
+			other.yspeed = -other.jumpspeed;
+		}
+		else {
+			with (other) {
+				event_user(0);	
+			}
+		}
 	}
-	yspeed = -jumpspeed;
 }
+//Invincibility frames
+if (invincibility > 0) 
+	invincibility -= 1;
+
 
 #endregion
 
