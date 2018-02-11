@@ -1,14 +1,23 @@
 /// @description Insert description here
 // You can write your code in this editor
 
-#region Platforming bits
+
+#region Input
 
 var _lr = keyboard_check(vk_right)-keyboard_check(vk_left);
 var _jumpkey = keyboard_check_pressed(ord("X"));
 var _jumpkey_held = keyboard_check(ord("X"));
+var _runkey = keyboard_check_pressed(ord("Z"));
+var _runkey_held = keyboard_check(ord("Z"));
+
+#endregion 
+
+#region Platforming bits
+var _max_xspeed_sprint = max_xspeed + (max_xspeed*_runkey_held);	// Accoutn for sprinting
+
 xspeed += _lr;
-xspeed += -sign(xspeed)*friction_strength; 		//	applying basic friction
-xspeed = clamp(xspeed,-max_xspeed,max_xspeed);	//	limiting speed
+xspeed += -sign(xspeed)*friction_strength; 							//	applying basic friction
+xspeed = clamp(xspeed,-_max_xspeed_sprint,_max_xspeed_sprint);		//	limiting speed
 if (abs(xspeed)) < 0.2 {
 	xspeed = 0;
 }
@@ -17,54 +26,49 @@ yspeed = clamp(yspeed,-max_yspeed,max_yspeed);
 
 f_xspeed = floor(xspeed);
 f_yspeed = floor(yspeed);
-/*
-var _inBlock = scr_tilemap_box_collision(	obj_controller.tilemap,
-											bbox_left,	bbox_top,
-											bbox_right,	bbox_bottom, true);
-*/
-var _inBlock = scr_collide_with_world(	obj_controller.tilemap, x, y,
+
+var _inBlock = scr_collide_with_world(	obj_controller.tilemap,
 										bbox_left, bbox_top, bbox_right, bbox_bottom, par_box);
 if (_inBlock) {
 	var _xd = 0;
-	/*_inBlock = scr_tilemap_box_collision(	obj_controller.tilemap,
-											bbox_left + _xd,	bbox_top,
-											bbox_right + _xd,	bbox_bottom, true);
-	*/
 	show_debug_message("in block check");
-	_inBlock = scr_collide_with_world(	obj_controller.tilemap, x + _xd, y,
-										bbox_left + _xd, bbox_top, bbox_right + _xd, bbox_bottom, par_box);
-	while (_inBlock) {
-		_xd += 1;
+	while (_inBlock == true) {
+		_xd += image_xscale					// push player out of a block, based on their facing direction
+		_inBlock = scr_collide_with_world(	obj_controller.tilemap,
+											bbox_left + _xd, bbox_top,
+											bbox_right + _xd, bbox_bottom, par_box);
 	}
 }
-/*var _grounded = scr_tilemap_box_collision(	obj_controller.tilemap,
-								bbox_left,	bbox_bottom+1,
-								bbox_right,	bbox_bottom+1 , true)
-*/
-var _grounded = scr_collide_with_world(	obj_controller.tilemap, x, y+1,
-										bbox_left, bbox_bottom+1, bbox_right, bbox_bottom+1, par_box);
+
+var _grounded = scr_collide_with_world(	obj_controller.tilemap,
+										bbox_left, bbox_bottom+1,
+										bbox_right, bbox_bottom+1, par_box);
 show_debug_message("grounded check");
-if (!scr_collide_with_world(	obj_controller.tilemap, x+f_xspeed, y,
-								bbox_left+f_xspeed, bbox_top, bbox_right+f_xspeed, bbox_bottom, par_box)) {
+if (!scr_collide_with_world(	obj_controller.tilemap,
+								bbox_left+f_xspeed, bbox_top,
+								bbox_right+f_xspeed, bbox_bottom, par_box)) {
 	x += f_xspeed;
 	show_debug_message("x-movement");
 }
 else {
-	while (!scr_collide_with_world(	obj_controller.tilemap, x+sign(f_xspeed), y,
-									bbox_left+sign(f_xspeed), bbox_top, bbox_right+sign(f_xspeed), bbox_bottom, par_box))  {
+	while (!scr_collide_with_world(	obj_controller.tilemap, 
+									bbox_left+sign(f_xspeed), bbox_top,
+									bbox_right+sign(f_xspeed), bbox_bottom, par_box))  {
 		x += sign(f_xspeed);
 		show_debug_message("x-to-block");
 	}
 	xspeed = 0;
 }
-if (!scr_collide_with_world(	obj_controller.tilemap, x, y+f_yspeed,
-								bbox_left, bbox_top+f_yspeed, bbox_right, bbox_bottom+f_yspeed, par_box)) {
+if (!scr_collide_with_world(	obj_controller.tilemap,
+								bbox_left, bbox_top+f_yspeed,
+								bbox_right, bbox_bottom+f_yspeed, par_box)) {
 	y += f_yspeed;
 	show_debug_message("y-movement");
 }
 else {
-	while (!scr_collide_with_world(	obj_controller.tilemap, x, y+sign(f_yspeed),
-									bbox_left, bbox_top+sign(f_yspeed), bbox_right, bbox_bottom+sign(f_yspeed), par_box)) {
+	while (!scr_collide_with_world(	obj_controller.tilemap,
+									bbox_left, bbox_top+sign(f_yspeed),
+									bbox_right, bbox_bottom+sign(f_yspeed), par_box)) {
 		y += sign(f_yspeed);
 		show_debug_message("y-move-check");
 	}
@@ -78,6 +82,23 @@ if (_grounded) {
 } else if (yspeed < -2 && _jumpkey_held) { //still going up
 	yspeed -= 1;
 }
+#endregion
+
+#region Form-specific attacks
+
+switch (form) {
+	case player_forms.fire: 
+		if (_runkey) {
+			with (instance_create_layer(x,y-sprite_height/2,layer,obj_fireball)) {
+				image_xscale = other.image_xscale;
+				xspeed *= image_xscale;
+			}
+		}
+	break;
+	//More forms go here
+	
+}
+
 #endregion
 
 #region Item Collisions
@@ -98,6 +119,18 @@ if (instance_exists(_inst)) {
 		instance_destroy(_inst);
 	}
 }
+#endregion
+
+#region Enemy collisions
+
+var _inst = instance_place(x,y+1,par_enemy);
+if (_inst != noone) {
+	with (_inst) {
+		hp -= 1;	
+	}
+	yspeed = -jumpspeed;
+}
+
 #endregion
 
 #region Animation bits
